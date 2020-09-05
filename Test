@@ -1,149 +1,77 @@
 
-import xml.etree.ElementTree as XmlElementTree 
-import httplib2
+import xml.etree.ElementTree as XmlElementTree  # Импорт парсера для xml
+import httplib2 # Импорт библиотеки для HTTP - запросов
 import uuid
-from config import ***
+from config import *** # Импорт всего из файла конфигурации
 
  
-
-***_HOST = '***'
-
+***_HOST = '***' 
 ***_PATH = '/***_xml'
-
 CHUNK_SIZE = 1024 ** 2
-
  
 
 def speech_to_text(filename=None, bytes=None, request_id=uuid.uuid4().hex, topic='notes', lang='ru-RU',
+                       key=***_API_KEY): # функция, принимающая определенные параметры
 
-                       key=***_API_KEY):
-
- 
-
-        if filename:
-
-            with open(filename, 'br') as file:
-
-                bytes = file.read()
-
-        if not bytes:
-
+        if filename: # Если файл был передан
+            with open(filename, 'br') as file: # Открываем файл в побайтовом формате
+                bytes = file.read() # Считываем файл
+        if not bytes: # Если не считалось 
             raise Exception('Neither file name nor bytes provided.')
 
- 
-
- 
-
-        bytes = convert_to_pcm16b16000r(in_bytes=bytes)
-
- 
-
+        bytes = convert_to_pcm16b16000r(in_bytes=bytes) # Конвертирование байтов, я так понял в звуковой формат
         
 
         url = ***_PATH + '?uuid=%s&key=%s&topic=%s&lang=%s' % (
-
             request_id,
-
             key,
-
             topic,
-
             lang
+        ) # Создание url - адреса
 
-        )
-
- 
-
-        
-
-        chunks = read_chunks(CHUNK_SIZE, bytes)
-
- 
-
-        
-
-        connection = httplib2.HTTPConnectionWithTimeout(***_HOST)
-
- 
-
+        chunks = read_chunks(CHUNK_SIZE, bytes)  
+        connection = httplib2.HTTPConnectionWithTimeout(***_HOST)  # Создается http - соединение 
         connection.connect()
-
         connection.putrequest('POST', url)
-
         connection.putheader('Transfer-Encoding', 'chunked')
-
         connection.putheader('Content-Type', 'audio/x-pcm;bit=16;rate=16000')
-
         connection.endheaders()
 
  
-
- 
-
-        for chunk in chunks:
-
-            connection.send(('%s\r\n' % hex(len(chunk))[2:]).encode())
-
+        for chunk in chunks: 
+            connection.send(('%s\r\n' % hex(len(chunk))[2:]).encode())  # Отправляется запрос для каждого элемента
             connection.send(chunk)
-
             connection.send('\r\n'.encode())
 
- 
-
         connection.send('0\r\n\r\n'.encode())
-
-        response = connection.getresponse()
-
- 
-
+        response = connection.getresponse() # Принимается ответ
         
 
-        if response.code == 200:
-
-            response_text = response.read()
-
-            xml = XmlElementTree.fromstring(response_text)
-
- 
-
-            if int(xml.attrib['success']) == 1:
-
-                max_confidence = - float("inf")
-
+        if response.code == 200:  # Если ответ от сервера пришел без ошибок
+            response_text = response.read()  # Считывание ответа
+            xml = XmlElementTree.fromstring(response_text)  # Парсинг ответа 
+            if int(xml.attrib['success']) == 1:  # Если атрибут "success" == 1
+                max_confidence = - float("inf")  # максимальная уверенность становится бесконечностью
                 text = ''
 
- 
+                for child in xml:  # Перебор элементов xml
+                    if float(child.attrib['confidence']) > max_confidence:  # Если атрибут 'confidence' больше  max_confidence
+                        text = child.text  # Текст становится текстом из элемента child
+                        max_confidence = float(child.attrib['confidence'])  # Максимальная уверенность становится атрибутом child "confidence"
 
-                for child in xml:
-
-                    if float(child.attrib['confidence']) > max_confidence:
-
-                        text = child.text
-
-                        max_confidence = float(child.attrib['confidence'])
-
- 
-
-                if max_confidence != - float("inf"):
-
-                    return text
-
-                else:
-
-                    
-
+                if max_confidence != - float("inf"):  max_confidence не равна -бесконечности
+                    return text # Возвращаем текст
+                else: # ошибки
                     raise SpeechException('No text found.\n\nResponse:\n%s' % (response_text))
-
             else:
-
                 raise SpeechException('No text found.\n\nResponse:\n%s' % (response_text))
-
         else:
-
             raise SpeechException('Unknown error.\nCode: %s\n\n%s' % (response.code, response.read()))
 
- 
 
 сlass SpeechException(Exception):
-
+        """
+        Пустой класс, наследуемый от ошибки. Можно было бы обойтись без него, 
+        проcто вызывая Exeption, но в будующем так проще будет добавить что-то новое
+        """
         pass

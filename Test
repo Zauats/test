@@ -11,15 +11,18 @@ CHUNK_SIZE = 1024 ** 2
  
 
 def speech_to_text(filename=None, bytes=None, request_id=uuid.uuid4().hex, topic='notes', lang='ru-RU',
-                       key=***_API_KEY): # функция, принимающая определенные параметры
+                       key=***_API_KEY):
+        """
+        Принимает имя файла или байты мелодии, посылает его на сервер, возвращает более вероятный текст
+        """
 
         if filename: # Если файл был передан
             with open(filename, 'br') as file: # Открываем файл в побайтовом формате
                 bytes = file.read() # Считываем файл
-        if not bytes: # Если не считалось 
+        if not bytes: # Если не считалось и bytes не было передано
             raise Exception('Neither file name nor bytes provided.')
 
-        bytes = convert_to_pcm16b16000r(in_bytes=bytes) # Конвертирование байтов, я так понял в звуковой формат
+        bytes = convert_to_pcm16b16000r(in_bytes=bytes) # Конвертирование байтов в звуковой формат
         
 
         url = ***_PATH + '?uuid=%s&key=%s&topic=%s&lang=%s' % (
